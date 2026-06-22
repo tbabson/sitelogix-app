@@ -1,0 +1,38 @@
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Build output
+dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test output
+*.out
+coverage.html
+
+# Docker volumes
+postgres_data/
+
+# SSL certs (keep example, ignore actual)
+nginx/ssl/*.crt
+nginx/ssl/*.key
+nginx/ssl/*.pem
+!nginx/ssl/.gitkeep

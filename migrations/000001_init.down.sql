@@ -1,0 +1,15 @@
+DROP TABLE IF EXISTS issues;
+DROP TABLE IF EXISTS media;
+DROP TABLE IF EXISTS daily_logs;
+DROP TABLE IF EXISTS attendance;
+DROP TABLE IF EXISTS workers;
+DROP TABLE IF EXISTS project_members;
+DROP TABLE IF EXISTS projects;
+DROP TABLE IF EXISTS refresh_tokens;
+DROP TABLE IF EXISTS users;
+
+DROP TYPE IF EXISTS issue_status;
+DROP TYPE IF EXISTS issue_priority;
+DROP TYPE IF EXISTS log_status;
+DROP TYPE IF EXISTS project_status;
+DROP TYPE IF EXISTS user_role;

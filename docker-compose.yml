@@ -1,0 +1,89 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sitelogix_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sitelogix
+      POSTGRES_USER: sitelogix
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sitelogix_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sitelogix -d sitelogix"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    image: migrate/migrate:v4.17.0
+    container_name: sitelogix_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://sitelogix:${DB_PASSWORD:-secret}@postgres:5432/sitelogix?sslmode=disable",
+        "up",
+      ]
+    networks:
+      - sitelogix_net
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sitelogix_app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+    networks:
+      - sitelogix_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5005/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: sitelogix_nginx
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_cache:/var/cache/nginx
+    networks:
+      - sitelogix_net
+
+volumes:
+  postgres_data:
+  nginx_cache:
+
+networks:
+  sitelogix_net:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: "1450"

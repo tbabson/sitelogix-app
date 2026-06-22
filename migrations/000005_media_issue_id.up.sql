@@ -1,0 +1,2 @@
+ALTER TABLE media ADD COLUMN IF NOT EXISTS issue_id UUID REFERENCES issues(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_media_issue_id ON media(issue_id) WHERE issue_id IS NOT NULL;

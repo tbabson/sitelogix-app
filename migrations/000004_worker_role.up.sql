@@ -1,0 +1,6 @@
+ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'worker';
+
+ALTER TABLE workers
+    ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE SET NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_workers_user_id ON workers(user_id) WHERE user_id IS NOT NULL;
