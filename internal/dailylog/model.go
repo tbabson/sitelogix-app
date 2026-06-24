@@ -12,29 +12,31 @@ const (
 )
 
 type DailyLog struct {
-	ID           string     `db:"id" json:"id"`
-	ProjectID    string     `db:"project_id" json:"project_id"`
-	CreatedBy    string     `db:"created_by" json:"created_by"`
-	Date         time.Time  `db:"date" json:"date"`
-	Weather      *string    `db:"weather" json:"weather"`
-	Notes        *string    `db:"notes" json:"notes"`
-	GPSLat       *float64   `db:"gps_lat" json:"gps_lat"`
-	GPSLng       *float64   `db:"gps_lng" json:"gps_lng"`
-	SignatureURL *string    `db:"signature_url" json:"signature_url"`
-	Status       LogStatus  `db:"status" json:"status"`
-	CreatedAt    time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt    time.Time  `db:"updated_at" json:"updated_at"`
-	ProjectName  string     `db:"project_name" json:"project_name"`
-	CreatorName  string     `db:"creator_name" json:"creator_name"`
+	ID           string        `db:"id" json:"id"`
+	ProjectID    string        `db:"project_id" json:"project_id"`
+	CreatedBy    string        `db:"created_by" json:"created_by"`
+	Date         time.Time     `db:"date" json:"date"`
+	Weather      *string       `db:"weather" json:"weather"`
+	Notes        *string       `db:"notes" json:"notes"`
+	GPSLat       *float64      `db:"gps_lat" json:"gps_lat"`
+	GPSLng       *float64      `db:"gps_lng" json:"gps_lng"`
+	SignatureURL *string       `db:"signature_url" json:"signature_url"`
+	Status       LogStatus     `db:"status" json:"status"`
+	CreatedAt    time.Time     `db:"created_at" json:"created_at"`
+	UpdatedAt    time.Time     `db:"updated_at" json:"updated_at"`
+	ProjectName  string        `db:"project_name" json:"project_name"`
+	CreatorName  string        `db:"creator_name" json:"creator_name"`
+	Materials    []LogMaterial `db:"-" json:"materials"`
 }
 
 type CreateLogRequest struct {
-	ProjectID string    `json:"project_id" binding:"required,uuid"`
-	Date      time.Time `json:"date" binding:"required"`
-	Weather   *string   `json:"weather"`
-	Notes     *string   `json:"notes"`
-	GPSLat    *float64  `json:"gps_lat"`
-	GPSLng    *float64  `json:"gps_lng"`
+	ProjectID string                  `json:"project_id" binding:"required,uuid"`
+	Date      time.Time               `json:"date" binding:"required"`
+	Weather   *string                 `json:"weather"`
+	Notes     *string                 `json:"notes"`
+	GPSLat    *float64                `json:"gps_lat"`
+	GPSLng    *float64                `json:"gps_lng"`
+	Materials []AddLogMaterialRequest `json:"materials"`
 }
 
 type UpdateLogRequest struct {

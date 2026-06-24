@@ -28,7 +28,15 @@ func (s *Service) Create(req CreateLogRequest, userID string) (*DailyLog, error)
 	return s.repo.Create(req, userID)
 }
 
-func (s *Service) Get(id string) (*DailyLog, error) { return s.repo.FindByID(id) }
+func (s *Service) Get(id string) (*DailyLog, error) {
+	log, err := s.repo.FindByID(id)
+	if err != nil {
+		return nil, err
+	}
+	mats, _ := s.repo.ListLogMaterials(id)
+	log.Materials = mats
+	return log, nil
+}
 
 func (s *Service) List(f LogFilter) ([]DailyLog, int, error) {
 	if f.Limit <= 0 {

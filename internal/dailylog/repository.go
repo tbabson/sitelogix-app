@@ -18,14 +18,58 @@ func NewRepository(db *sqlx.DB, invRepo *inventory.Repository) *Repository {
 }
 
 func (r *Repository) Create(req CreateLogRequest, createdBy string) (*DailyLog, error) {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
 	var l DailyLog
-	err := r.db.QueryRowx(`
+	err = tx.QueryRowx(`
 		INSERT INTO daily_logs (project_id, created_by, date, weather, notes, gps_lat, gps_lng)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, project_id, created_by, date, weather, notes, gps_lat, gps_lng, signature_url, status, created_at, updated_at`,
 		req.ProjectID, createdBy, req.Date, req.Weather, req.Notes, req.GPSLat, req.GPSLng,
 	).StructScan(&l)
-	return &l, err
+	if err != nil {
+		return nil, err
+	}
+
+	// Record any materials supplied with the log in the same transaction so the
+	// log and its materials are saved atomically.
+	for _, m := range req.Materials {
+		if err = r.insertLogMaterial(tx, l.ID, l.ProjectID, createdBy, m); err != nil {
+			return nil, err
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	if len(req.Materials) > 0 {
+		l.Materials, _ = r.ListLogMaterials(l.ID)
+	}
+	return &l, nil
+}
+
+// insertLogMaterial records one material against a log within an existing transaction,
+// deducting project stock on a best-effort basis (a savepoint isolates the deduction so
+// a missing project-inventory row does not abort the surrounding transaction).
+func (r *Repository) insertLogMaterial(tx *sqlx.Tx, logID, projectID, createdBy string, req AddLogMaterialRequest) error {
+	if _, spErr := tx.Exec("SAVEPOINT sp_deduct"); spErr == nil {
+		if deductErr := r.invRepo.DeductProjectStock(tx, req.MaterialID, projectID, req.QuantityUsed, logID, createdBy); deductErr != nil {
+			tx.Exec("ROLLBACK TO SAVEPOINT sp_deduct")
+		} else {
+			tx.Exec("RELEASE SAVEPOINT sp_deduct")
+		}
+	}
+
+	_, err := tx.Exec(`
+		INSERT INTO log_materials (log_id, material_id, quantity_used)
+		VALUES ($1, $2, $3)`,
+		logID, req.MaterialID, req.QuantityUsed)
+	return err
 }
 
 func (r *Repository) FindByID(id string) (*DailyLog, error) {
@@ -179,30 +223,15 @@ func (r *Repository) AddLogMaterial(logID, createdBy string, req AddLogMaterialR
 		return nil, fmt.Errorf("log not found")
 	}
 
-	// Best-effort stock deduction — use a savepoint so that a failure (e.g. no project
-	// inventory yet) rolls back only the deduction and leaves the transaction usable.
-	if _, spErr := tx.Exec("SAVEPOINT sp_deduct"); spErr == nil {
-		if deductErr := r.invRepo.DeductProjectStock(tx, req.MaterialID, projectID, req.QuantityUsed, logID, createdBy); deductErr != nil {
-			tx.Exec("ROLLBACK TO SAVEPOINT sp_deduct")
-		} else {
-			tx.Exec("RELEASE SAVEPOINT sp_deduct")
-		}
-	}
-
-	var lm LogMaterial
-	err = tx.QueryRowx(`
-		INSERT INTO log_materials (log_id, material_id, quantity_used)
-		VALUES ($1, $2, $3)
-		RETURNING id, log_id, material_id, quantity_used, created_at`,
-		logID, req.MaterialID, req.QuantityUsed,
-	).StructScan(&lm)
-	if err != nil {
+	if err = r.insertLogMaterial(tx, logID, projectID, createdBy, req); err != nil {
 		return nil, err
 	}
 
 	if err = tx.Commit(); err != nil {
 		return nil, err
 	}
+
+	var lm LogMaterial
 
 	// Load the full row with material name/unit
 	results, err := r.ListLogMaterials(logID)
